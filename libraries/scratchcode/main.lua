@@ -8,8 +8,8 @@ local opcodes = {
 }
 
 local custom_opcodes = {
-    ["var"] = 5,
-    ["func_run"] = 6
+    ["var"] = 6,
+    ["func_run"] = 5
 }
 
 --local type_comp = "8Bits"
@@ -74,11 +74,30 @@ end
 local function compileSyntaxAdd(text)
     local var_name, equals_sign, expression = text:match("^(%S+)%s*(=)%s*(.*%S*)%s*$")
 
+    local syntax = syntaxGet(text)
+
     if var_name and equals_sign and expression then
         return {custom_opcodes["var"],'"'..var_name..'"',expression}
+    elseif not opcodes[syntax[1]] then
+        table.insert(syntax, 1, custom_opcodes["func_run"])
+
+        syntax[2] = '"'..syntax[2]..'"'
+
+        print("print: \n"..table.concat(syntax,"\n").."\nend print")
+
+        return syntax
     else
-        return syntaxGet(text)
+        return syntax
     end
+end
+
+local function getMath(string_math)
+    local num_p = "(%S+)"
+    local op_p = "([%+%-%*/])"
+
+    local n1, op, n2 = string_math:match("^"..num_p.."%s+"..op_p.."%s+"..num_p.."$")
+
+    return (n1 ~= nil and op ~= nil and n2 ~= nil),{n1,n2,op}
 end
 
 local function getType(object_orig)
@@ -86,6 +105,8 @@ local function getType(object_orig)
 
     local is_string = object:sub(1,1) == "'" or object:sub(1,1) == '"'
     local is_number = tonumber(object)
+
+    local is_math, math_tbl = getMath(object)
 
     local lenght = #object
 
@@ -101,6 +122,23 @@ local function getType(object_orig)
         return 1, object:gsub("^(['\"])(.*)%1$", "%2")
     elseif is_number then
         return 2, is_number
+    elseif is_math then
+        local math_lookup = {
+            ["+"] = 1,
+            ["-"] = 2,
+            ["/"] = 3,
+            ["*"] = 4
+        }
+
+        local ret_str = string.char(#tostring(math_tbl[1]))..tostring(math_tbl[1])..string.char(#tostring(math_tbl[2]))..tostring(math_tbl[2])..string.char(math_lookup[math_tbl[3]])
+
+        --print("Demo bruh:"..ret_str)
+
+        return 4, ret_str
+    elseif object == "true" or object == "false" then
+        --print(object:sub(0,1))
+
+        return 5, object:sub(0,1)
     else
         return 3, object
     end
@@ -121,18 +159,11 @@ local function compileOneLine(tbl,trace,not_chk_func)
                     --print("Variable")
 
                     table.insert(buffer,string.char(custom_opcodes["var"]))
+                elseif v == custom_opcodes["func_run"] then
+                    table.insert(buffer,string.char(custom_opcodes["func_run"]))
                 else
                     if current_oper then
                         table.insert(buffer,string.char(current_oper))
-                    else
-                        print("Using custom function...\nStack trace: Line "..tostring(trace))
-                        
-                        table.insert(buffer,string.char(custom_opcodes["func_run"]))
-
-                        table.insert(buffer,string.char(1))
-
-                        table.insert(buffer, int_to_bytes(#tbl[1],2))
-                        table.insert(buffer,tbl[1])
                     end
                 end
             end

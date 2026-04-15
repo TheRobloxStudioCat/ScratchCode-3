@@ -14,8 +14,14 @@ local is_minimaze = false
 local is_window = false
 local is_close = false
 
+local cursor_img = love.mouse.newCursor("images/cursor.png")
+
 local history = {}
 local history_v = 0
+
+local title = "ScratchCode 3.0 VM and Compiler toolkit"
+
+local graphics_mode = false
 
 local function to_string(str)
     local str_symbol = str:sub(0,1)
@@ -101,29 +107,64 @@ local commands = {
 
         console = ""
 
-        cons_print("Made by TheDreamingCat with love and silliness! :3\nIf you see this, pls check out my github!: https://github.com/TheRobloxStudioCat")
+        cons_print("Made by TheDreamingCat with love and silliness! :3\n\nIf you see this, pls check out my github!: https://github.com/TheRobloxStudioCat\nMy own site!: http://dreamingstudio.atwebpages.com")
+    end,
+
+    ["set_mode"] = function (args)
+        if not args[1] then cons_print("[ERROR]: Not enough arguments! Need 1, got "..tostring(#args)) return nil end
+
+        print("Idk how to implement this, i wanna make it restart the program with an argument..")
     end,
 
     ["run_demo"] = function (args)
         if not args[1] then cons_print("[ERROR]: Not enough arguments! Need 1, got "..tostring(#args)) return nil end
 
         if args[1] == "funcs" then
-            cons_print("Running demo 1...", false)
+            cons_print("Running funcs demo...", false)
 
             love.filesystem.write("demo_funcs.result", scr_code.compile({
                 "@func demo_Func",
                 "print 'Fiddlesticks... Now here comes the 256 characters string!  EEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEE'",
                 "warn 'Demo?'",
                 "@end_func",
-                "@func Demo 2!",
-                "print 'Fiddlesticks... Now here comes the 256 characters string!  EEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEE'",
-                "warn 'Demo?'",
+                "@func DemoFunc2",
+                "print 'Demo???'",
                 "@end_func",
                 "print 'Outside.'",
-                "demo_Func"
+                "demo_Func",
+                "var = 'smart!'",
+                "print var",
+                "DemoFunc2"
             }))
 
             scr_code.createVM(love.filesystem.read("demo_funcs.result"))
+        elseif args[1] == "math" then
+            cons_print("Running math demo...", false)
+
+            love.filesystem.write("demo_math.result", scr_code.compile({
+                "Cookies = 12",
+                "ToTake = 4",
+                "Taken = Cookies - ToTake",
+                "print Taken"
+            }))
+
+            scr_code.createVM(love.filesystem.read("demo_math.result"))
+        elseif args[1] == "bool" then
+            cons_print("Running bool demo...", false)
+
+            love.filesystem.write("demo_boolean.result", scr_code.compile({
+                "print true"
+            }))
+
+            scr_code.createVM(love.filesystem.read("demo_boolean.result"))
+        elseif args[1] == "error" then
+            cons_print("Running error demo...", false)
+
+            love.filesystem.write("demo_error.result", scr_code.compile({
+                "error 12 / 2"
+            }))
+
+            scr_code.createVM(love.filesystem.read("demo_error.result"))
         end
     end,
 
@@ -227,7 +268,7 @@ local commands = {
         header = "> /" .. current_dir .. " "
     end,
 
-    -- You can readd the birb!
+    -- You can re-add the birb!
 
     --[[
 
@@ -273,7 +314,12 @@ local commands = {
     --]]
 }
 
-local scratch_icon = love.graphics.newImage("icon.png")
+local icons = {
+    ["def"] = love.graphics.newImage("icon.png"),
+    ["inprogram"] = love.graphics.newImage("appicon.png")
+}
+
+local curr_icon = "def"
 
 local function parseCMD(str)
     local args = {}
@@ -328,24 +374,82 @@ function math.limit(obj,x,y)
     return obj
 end
 
-function cons_print(object, dont_print)
+function cons_print(object, dont_print, no_nl)
     if type(object) == "table" then
         if dont_print then
-            console = console.."\n"..table.concat(object,", ").."\n\n"
+            if no_nl then
+                console = console..table.concat(object,", ").."\n"
+            else
+                console = console.."\n"..table.concat(object,", ").."\n\n"
+            end
         else
             console = console..header..current_command.."\n"..table.concat(object,", ").."\n\n"
         end
     else
         if dont_print then
-            console = console.."\n"..tostring(object).."\n\n"
+            if no_nl then
+                console = console..tostring(object).."\n"
+            else
+                console = console.."\n"..tostring(object).."\n\n"
+            end
         else
             console = console..header..current_command.."\n"..tostring(object).."\n\n"
         end
     end
 end
 
-function love.load()
+function loadFile(filename)
+    local obj = io.open(filename,"rb")
+
+    title = filename
+
+    curr_icon = "inprogram"
+
+    if obj then
+        local ret = obj:read("*a")
+
+        obj:close()
+
+        return ret
+    else
+        error("Error while parsing argument: "..filename)
+    end
+end
+
+function love.load(arg)
+    local graphics = arg[1] == "--graphics"
+
+    print(#arg)
+
+    if graphics then
+        local load = arg[2]
+
+        print(arg[2])
+
+        if load then
+            local file  = loadFile(load)
+
+            graphics_mode = true
+
+            scr_code.createVM(file)
+        else
+            error("Didn`t provide any Class file!")
+        end
+    else
+        local load = arg[1]
+
+        if load then
+            local file  = loadFile(load)
+
+            scr_code.createVM(file)
+        end
+    end
+
+    --print(table.concat(full_arg, ", "))
+
     love.keyboard.setKeyRepeat(true)
+
+    love.mouse.setCursor(cursor_img)
 end
 
 function love.update(dt)
@@ -358,9 +462,9 @@ function love.update(dt)
     local channel_got = console_thread:pop()
 
     while channel_got do
-        print(channel_got)
+        --print(channel_got)
 
-        cons_print(channel_got, true)
+        cons_print(channel_got, true, true)
 
         channel_got = console_thread:pop()
     end
@@ -396,29 +500,33 @@ function love.update(dt)
 end
 
 function love.draw()
-    is_close, is_window, is_minimaze = window_eng.drawWindow(0,0,800,600, "ScratchCode 3.0 Console", scratch_icon, function ()
-        local byte_offset = utf8.offset(current_command, char_pos + 1) or (#current_command + 1)
-        local part1 = string.sub(current_command, 1, byte_offset - 1)
-        local part2 = string.sub(current_command, byte_offset)
+    is_close, is_window, is_minimaze = window_eng.drawWindow(0,0,800,600, title, icons[curr_icon], function ()
+        if not graphics_mode then
+            local byte_offset = utf8.offset(current_command, char_pos + 1) or (#current_command + 1)
+            local part1 = string.sub(current_command, 1, byte_offset - 1)
+            local part2 = string.sub(current_command, byte_offset)
 
-        local full_command = part1..cursor..part2
+            local full_command = part1..cursor..part2
 
-        love.graphics.setColor(0,0,0)
+            local text = console..header..full_command
 
-        love.graphics.rectangle("fill",0,0,784,562)
+            love.graphics.setColor(0,0,0)
 
-        love.graphics.setColor(1,1,1)
+            love.graphics.rectangle("fill",0,0,784,562)
 
-        love.graphics.setFont(console_font)
+            love.graphics.setColor(1,1,1)
 
-        --print(console..header..full_command)
+            love.graphics.setFont(console_font)
 
-        love.graphics.printf(console..header..full_command,4,4,778,"left")
+            --print(console..header..full_command)
 
-        local _, lines = console_font:getWrap(console, 778)
+            love.graphics.printf(text,4,4,778,"left")
 
-        if #lines > 46 then
-            console = console:match("\n(.*)")
+            local _, lines = console_font:getWrap(text, 778)
+
+            if #lines > 46 then
+                console = console:match("\n(.*)")
+            end
         end
     end)
 end
@@ -533,4 +641,8 @@ function love.mousereleased()
     if is_minimaze then
         love.window.minimize()
     end
+end
+
+function love.threaderror(thread, errorstr)
+    cons_print("An error occured in a VM:\n\n"..errorstr, true, true)
 end
