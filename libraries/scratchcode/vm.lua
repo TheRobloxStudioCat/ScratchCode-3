@@ -10,6 +10,26 @@ local functions = {}
 
 local if_stack = {}
 
+local function should_execute()
+    for _, status in ipairs(if_stack) do
+        if status == false then return false end
+    end
+
+    return true
+end
+
+local main_opcodes = {
+    [7] = function (args)
+        local condition_result = (args[1]) == true
+
+        table.insert(if_stack, condition_result)
+    end,
+
+    [8] = function ()
+        table.remove(if_stack)
+    end
+}
+
 local opcode_cmds = {
     [1] = function (args)
         local print_args = {}
@@ -98,6 +118,7 @@ function RunData(start_pos, run_dat)
             local args = {}
 
             local function_to_run = opcode_cmds[opcode]
+            local custom_funcs = main_opcodes[opcode]
 
             for i = 1, arg_hash do
                 --print("Line "..tostring(stack))
@@ -125,7 +146,13 @@ function RunData(start_pos, run_dat)
                 elseif arg_type == 2 then
                     arg = tonumber(arg_data)
                 elseif arg_type == 3 then
-                    arg = variables[arg_data] or error("[ERROR]: Variables does not exist!".."\nStack trace: Line "..tostring(stack))
+                    local var = variables[arg_data]
+
+                    if var == nil then
+                        error("[ERROR]: Variables does not exist!".."\nStack trace: Line "..tostring(stack))
+                    end
+
+                    arg = var
                 elseif arg_type == 4 then
                     local op1_len = arg_data:byte(1)
                     local op1 = arg_data:sub(2,op1_len + 1)
@@ -165,7 +192,11 @@ function RunData(start_pos, run_dat)
             end
 
             if function_to_run then
-                function_to_run(args)
+                if should_execute() then
+                    function_to_run(args)
+                end
+            elseif custom_funcs then
+                custom_funcs(args)
             else
                 error("[VM]: Not valid function.".."\nStack trace: Line "..tostring(stack).."\n\nFunction opcode: "..tostring(opcode).."\n")
             end

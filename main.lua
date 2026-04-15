@@ -165,6 +165,17 @@ local commands = {
             }))
 
             scr_code.createVM(love.filesystem.read("demo_error.result"))
+        elseif args[1] == "check" then
+            cons_print("Running check demo...", false)
+
+            love.filesystem.write("demo_check.result", scr_code.compile({
+                "hasTreats = false",
+                "@if hasTreats",
+                "print 'Imma steal ya treats.'",
+                "@end_if"
+            }))
+
+            scr_code.createVM(love.filesystem.read("demo_check.result"))
         end
     end,
 

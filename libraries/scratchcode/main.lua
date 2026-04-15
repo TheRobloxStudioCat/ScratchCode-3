@@ -5,6 +5,8 @@ local opcodes = {
     ["warn"] = 2,
     ["error"] = 3,
     ["wait"] = 4,
+    ["@if"] = 7,
+    ["@end_if"] = 8
 }
 
 local custom_opcodes = {
